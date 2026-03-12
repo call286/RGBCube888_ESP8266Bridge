@@ -135,18 +135,22 @@ and MQTT startup.
 
 MQTT behavior:
 
-- Non-ESPHome mode:
-  - command topic: `<prefix>/bridge/command`
-  - state topic: `<prefix>/bridge/state`
+- Non-ESPHome mode topics:
+  - command: `<prefix>/bridge/command`
+  - state: `<prefix>/bridge/state`
   - availability: `<prefix>/bridge/availability`
-- ESPHome-like mode:
-  - command topic: `esphome/<node>/command`
-  - state topic: `esphome/<node>/state`
+  - STM display switch command: `<prefix>/bridge/stm_display/set`
+  - STM display switch state: `<prefix>/bridge/stm_display/state`
+  - STM mode select command: `<prefix>/bridge/stm_mode/set` (`0..10`)
+  - STM mode select state: `<prefix>/bridge/stm_mode/state`
+- ESPHome-like mode topics:
+  - command: `esphome/<node>/command`
+  - state: `esphome/<node>/state`
   - availability: `esphome/<node>/status`
-  - STM display switch command topic: `esphome/<node>/stm_display/set`
-  - STM display switch state topic: `esphome/<node>/stm_display/state`
-  - STM mode select command topic: `esphome/<node>/stm_mode/set` (`0..10`)
-  - STM mode select state topic: `esphome/<node>/stm_mode/state`
+  - STM display switch command: `esphome/<node>/stm_display/set`
+  - STM display switch state: `esphome/<node>/stm_display/state`
+  - STM mode select command: `esphome/<node>/stm_mode/set` (`0..10`)
+  - STM mode select state: `esphome/<node>/stm_mode/state`
   - retained discovery topic: `esphome/discover/<node>-<mac6>`
   - retained Home Assistant configs:
     - `homeassistant/button/<node>-restart/config`
@@ -155,11 +159,30 @@ MQTT behavior:
     - `homeassistant/select/<node>-stm_mode/config`
     - `homeassistant/sensor/<node>-bridge_state/config`
 
-The Home Assistant discovery payloads are published retained, including bridge restart
-(`pl_prs={"cmd":"restart"}`), STM restart (`pl_prs="rst"`), STM display toggle
-via MQTT switch (`pl_on="ON"`, `pl_off="OFF"` on `.../stm_display/set`), and a
-diagnostic state sensor (reads bridge state topic). STM mode can be selected via
-the HA select entity (`0..10`) or by publishing to `.../stm_mode/set`.
+MQTT commands (all possible payloads):
+
+- Main command topic (`.../command`):
+  - `restart` -> restarts ESP bridge.
+  - JSON-like restart payload containing both `"cmd"` and `restart` (for example `{"cmd":"restart"}`) -> restarts ESP bridge.
+  - any other non-empty payload -> sent to STM UART with trailing `\n`.
+  - in ESPHome-like mode only: `ON` maps to `m 1`, `OFF` maps to `m 2` before UART send.
+- STM display switch command topic (`.../stm_display/set`):
+  - ON values: `1`, `true`, `on`, `yes`, `enabled` -> sends `dp 1`.
+  - OFF values: `0`, `false`, `off`, `no`, `disabled` -> sends `dp 0`.
+  - toggle values: `toggle`, `t` -> sends `dp t`.
+  - any other payload is ignored.
+- STM mode select command topic (`.../stm_mode/set`):
+  - integer payload `0..10` -> sends `m <n>`.
+  - any other payload is ignored.
+
+Notes:
+
+- The Home Assistant discovery payloads are retained and include:
+  - bridge restart button (`pl_prs={"cmd":"restart"}` on main command topic)
+  - STM restart button (`pl_prs="rst"` on main command topic, forwarded as UART `rst\n`)
+  - STM display switch (`pl_on="ON"`, `pl_off="OFF"` on `.../stm_display/set`)
+  - STM mode select (`0..10` on `.../stm_mode/set`)
+  - bridge state diagnostic sensor (reads `.../state`)
 
 ## STM side note
 
